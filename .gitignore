@@ -1,0 +1,6 @@
+VeriHealthi_QEMU_SDK_v3.6/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.claude/
