@@ -1,0 +1,122 @@
+● 以下是项目中每个文件的详细说明：
+
+  ---
+  一、原始代码（主办方提供）
+
+  VeriHealthi_Algorithm_Homework_Code_Data/StepCounter/Python/step_counter_simulation.py
+
+  - 主题：官方原始计步算法（Python版）
+  - 内容：仅用 3轴加速度计 数据，通过峰值检测统计步数——找波峰波谷 → 过滤伪峰 → 合并相邻极值 → 去除不对称峰 → 取3轴中位数×2
+  - 结果：Walk MAE=10.5，MAPE=22.1%；Run MAE=4.8，MAPE=9.7%；Noise 误检率 30.4%
+
+  VeriHealthi_Algorithm_Homework_Code_Data/StepCounter/Python/improved_step_counter.py
+
+  - 主题：改进算法最终版（即 V4），被 test_report.py 导入使用
+  - 内容：与根目录 improved_step_counter_v4.py 相同 — 保留原始3轴峰值检测 + 用6轴数据计算步行置信度(0~1)，最终步数=原始步数×置信度
+  - 结果：Walk MAPE=20.8%，Run MAPE=9.7%，Noise MAE降低44%
+
+  VeriHealthi_Algorithm_Homework_Code_Data/StepCounter/C/alg_step_counter.c
+
+  - 主题：改进计步算法的 C语言实现（面向嵌入式硬件）
+  - 内容：用整型算术实现了 V4 算法的核心逻辑 — 6轴活动分类、置信度评分，适配 QEMU 仿真平台
+  - 结果：无需浮点运算，可直接部署到开发板
+
+  VeriHealthi_Algorithm_Homework_Code_Data/StepCounter/C/main.c
+
+  - 主题：C代码的入口函数
+  - 内容：调用 alg_step_counter 的测试主程序
+
+  VeriHealthi_Algorithm_Homework_Code_Data/NN/Python/bp_networks_simulation.py
+
+  - 主题：神经网络方案（节律分类器）
+  - 内容：BP神经网络训练/仿真，用作活动分类（步行 vs 噪声）
+  - 结果：训练准确率~89%，测试准确率~88%
+
+  ---
+  二、改进算法迭代版本（根目录）
+
+  improved_step_counter.py（V1）
+
+  - 主题：初版6轴计步算法
+  - 内容：完全重写峰值检测 + 6轴活动分类（walk/run/noise/stationary）+ 自相关节律性检测 + 陀螺仪验证
+  - 特点：硬决策（噪声窗口直接输出0），带 verbose 时间线日志
+
+  improved_step_counter_v2.py
+
+  - 主题：V2 — 保留原始峰值检测 + 6轴噪声过滤
+  - 内容：继承原始算法的 count_steps_original_method + 新增活动分类器 classify_activity + 步行时才启用步数统计
+  - 特点：加速度幅度 acc_mag 和3轴独立检测双轨融合，跑步优先 mag、走路优先3轴中位数
+
+  improved_step_counter_v3.py
+
+  - 主题：V3 — 完全不改原始峰值检测 + 6轴噪声分类
+  - 内容：完整保留原始 ActionProcessor 的4步处理流程，仅在窗口级增加6轴特征提取（6项特征）+ is_walking_or_running() 二分类决策
+  - 特点：特征工程最丰富 — 自相关峰值/宽度/谐波、峰值高度CV、峰值间隔CV、陀螺仪加速度能量比
+
+  improved_step_counter_v4.py（最终版）
+
+  - 主题：V4 — 原始步数检测 + 6轴置信度软决策
+  - 内容：步数完全交给原始算法，额外计算一个0~1置信度评分（节律性50% + 运动量30% + 陀螺仪10% + 一致性10%），最终步数 = 原始步数 × 置信度
+  - 关键区别：从 V1-V3 的硬决策（噪声→0步）改为软决策（噪声→低分→小数步），边际情况更稳健
+
+  ---
+  三、测试与评估脚本
+
+  test_report.py
+
+  - 主题：综合测试报告 — 原始算法 vs 改进算法(V4) 全量对比
+  - 内容：导入 V4，逐文件运行两种算法，计算 MAE/MAPE/误检率，打印完整的五部分报告
+  - 结果：
+  | 指标          | 原始  | 改进  | 改善  |
+  |---------------|-------|-------|-------|
+  | Walk+Run MAE  |  7.7  |  7.6  |   ↓   |
+  | Walk+Run MAPE | 15.9% | 15.3% | ↓0.6% |
+  | Noise MAE     |  1.6  |  0.9  | ↓44%  |
+  | Noise 误检率  | 30.4% | 25.0% | ↓18%  |
+
+
+  baseline_test.py
+
+  - 主题：原始算法基线测试
+  - 内容：完全复现原始3轴峰值检测算法，对全部80个文件跑一遍
+  - 结果：Walk MAPE=22.1%，Run MAPE=9.7%，Noise 误检率=30.4%（17/56文件误检）
+
+  data_analysis.py
+
+  - 主题：6轴数据特征分析
+  - 内容：逐文件分析加速度和陀螺仪的均值、标准差、范围、能量、主频等统计特征，按 walk/run/others 分类汇总
+  - 结果：
+    - Walk：acc_std ~901，主频 1-2Hz，gyro能量 ~4.95M
+    - Run：acc_std ~2970，主频 2-3Hz，gyro能量 ~6.80M
+    - Others：acc_std ~320（小得多），gyro能量 ~1.80M
+
+  ---
+  四、数据与配置文件
+
+  文件: VeriHealthi_Algorithm_Homework_Code_Data/AccData/ReadMe.txt
+  内容: 数据集说明：6轴IMU，7列一组（gyro_x/y/z + acc_x/y/z + debug），加速度 ±8G/4096perG，陀螺仪 ±2000°/s，50Hz采样
+  ────────────────────────────────────────
+  文件: VeriHealthi_Algorithm_Homework_Code_Data/AccData/walk/
+  内容: 12个走路文件，步数20-100
+  ────────────────────────────────────────
+  文件: VeriHealthi_Algorithm_Homework_Code_Data/AccData/run/
+  内容: 12个跑步文件，步数20-100
+  ────────────────────────────────────────
+  文件: VeriHealthi_Algorithm_Homework_Code_Data/AccData/others/
+  内容: 56个噪声文件（切菜、刷牙、挥手等），步数均为0
+  ────────────────────────────────────────
+  文件: 作业要求.txt
+  内容: 作业需求：6轴IMU计步、准确度MAE/MAPE、Python+C代码交付
+  ────────────────────────────────────────
+  文件: 官网链接.txt
+  内容: 竞赛官网 https://vesc.verisilicon.com/
+
+  ---
+  五、算法演进小结
+
+  原始3轴算法 → V1(完全重写6轴硬决策) → V2(保留原始+双轨融合) → V3(14项特征+硬分类) → V4(置信度软决策)
+                                                                                              ↑
+                                                                              test_report.py 选用的最终版
+
+  V4 之所以最优：它不是一刀切的"是/否判断"，而是给每个窗口一个连续置信度分数。走路窗口得 0.85-1.0 → 步数基本保留，噪声窗口得 0.0-0.3 →
+  步数被大幅压缩。这让边际情况不至于被完全误判。
